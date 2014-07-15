@@ -7,15 +7,7 @@
  */
 /* jshint strict: false, plusplus: true */
 /*global define: false, require: false, module: false, exports: false */
-define('gsocket', ['extend'], function(extend) {
-
-    /**
-     * Extend method.
-     * @param  {Object} target Source object
-     * @return {Object}        Resulting object from
-     *                         meging target to params.
-     */
-    var _extend = extend;
+define('gsocket', ['extend'], function(_extend) {
 
     /**
      * Shim console, make sure that if no console
@@ -49,10 +41,8 @@ define('gsocket', ['extend'], function(extend) {
         return src && method && src[method] && typeof src[method] === 'function';
     };
 
-
-
     ///////////////////////////////////////////////////
-    // CONSTRUCTOR
+    // DEFAULTS
     ///////////////////////////////////////////////////
 
     var options = {
@@ -122,7 +112,7 @@ define('gsocket', ['extend'], function(extend) {
          * try to lift that connection.
          * @type {Number}
          */
-        maxtries: 0,
+        maxtries: 5,
         /**
          * Time in milliseconds between each
          * reconnection try that the client
@@ -162,15 +152,9 @@ define('gsocket', ['extend'], function(extend) {
         keepalive: 0.5 * 60 * 1000 //ping every 2.5 minutes?
     };
 
-    /**
-     * GSocket constructor
-     *
-     * @param  {object} config Configuration object.
-     */
-    var GSocket = function(config) {
-        config = config || {};
-        this.init(config);
-    };
+    ///////////////////////////////////////////////////
+    // CLASS PROPERTIES
+    ///////////////////////////////////////////////////
 
     /*
      * VERSION
@@ -183,7 +167,6 @@ define('gsocket', ['extend'], function(extend) {
      * @type {String}
      */
     GSocket.name = GSocket.prototype.name = 'GSocket';
-
 
     /**
      * Make default options available so we
@@ -234,6 +217,28 @@ define('gsocket', ['extend'], function(extend) {
      */
     GSocket.ON_CONNECTED = 'connected';
 
+    /**
+     * Extend method.
+     * @param  {Object} target Source object
+     * @return {Object}        Resulting object from
+     *                         meging target to params.
+     */
+    GSocket.extend = _extend;
+
+    ///////////////////////////////////////////////////
+    // CONSTRUCTOR
+    ///////////////////////////////////////////////////
+
+    /**
+     * GSocket constructor
+     *
+     * @param  {object} config Configuration object.
+     */
+    function GSocket(config) {
+        config = config || {};
+        this.init(config);
+    };
+
     ///////////////////////////////////////////////////
     // PUBLIC METHODS
     ///////////////////////////////////////////////////
@@ -242,9 +247,9 @@ define('gsocket', ['extend'], function(extend) {
         if (this.initialized) return this.logger.warn('Already initialized');
         this.initialized = true;
 
-        console.log('GSocket: Init!');
+        this.logger.log('GSocket: Init!');
 
-        config = _extend({}, this.constructor.DEFAULS, config);
+        config = _extend({}, this.constructor.DEFAULTS, config);
 
         _extend(this, config);
 
@@ -277,19 +282,22 @@ define('gsocket', ['extend'], function(extend) {
             this.state = GSocket.CONNECTING;
             this.timeoutId = setTimeout(this.handleTimeout.bind(this), this.timeout);
 
-
             this.service.onerror = this.onError.bind(this);
             this.service.onopen = this.onConnected.bind(this);
             this.service.onclose = this.onClosed.bind(this);
             this.service.onmessage = this.onMessage.bind(this);
         } catch (e) {
+
             /* We can get a different errors:
              * code 12: Wrong protocol, wrong URL
              */
-            if (console && console.error) console.error(e);
+            this.logger.error(e);
 
             this.errors.push(e);
+
             this.state = GSocket.ERRORED;
+
+            this.emit('error', event);
         }
 
         return this;
@@ -299,10 +307,13 @@ define('gsocket', ['extend'], function(extend) {
      * Clear timeout ID's
      * @private
      */
+    GSocket.timeoutIds = ['retryId', 'timeoutId', 'heartbeatId'];
     GSocket.prototype.clearIds = function() {
-        clearTimeout(this.retryId);
-        clearTimeout(this.timeoutId);
-        clearTimeout(this.heartbeatId);
+        GSocket.timeoutIds.forEach(function(id) {
+            clearTimeout(this[id]);
+            clearInterval(this[id]);
+            this[id] = undefined;
+        }, this);
     };
 
     /**
@@ -368,7 +379,7 @@ define('gsocket', ['extend'], function(extend) {
      * connected to our WebSocket server.
      */
     GSocket.prototype.onConnected = function() {
-        this.logger.log('connected');
+        this.logger.log('onConnected');
 
         //should we check for pong response? return this.send(JSON.stringify(this.handshake));
         if (this.state !== GSocket.OPEN) this.sendHandshake();
@@ -550,7 +561,7 @@ define('gsocket', ['extend'], function(extend) {
      *
      * @return {this}
      */
-    PlatformClient.prototype.sendHandshake = function() {
+    GSocket.prototype.sendHandshake = function() {
         if (this.verbosity < 1) return this;
         this.send(this.handshake) && this.messages.pop();
         return this;

@@ -18,7 +18,6 @@ requirejs.config({
     baseUrl: '/base/src',
 
     paths: {
-        'jquery': '../lib/jquery/jquery',
         'extend': '../lib/gextend/extend'
     },
 

@@ -1,0 +1,28 @@
+{
+    "name": "gsocket",
+    "version": "0.0.0",
+    "main": "./dist/gsocket.min.js",
+    "ignore": [
+        "**/.*"
+    ],
+    "dependencies": {
+        "jquery": "~2.0.3",
+        "requirejs": "~2.1.4",
+        "requirejs-text": "2.0.6",
+        "requirejs-domready": "2.0.1"
+    },
+    "exportsOverride": {
+        "requirejs": {
+            "js": "require.js"
+        },
+        "jquery": {
+            "js": "jquery.js"
+        },
+        "gextend": {
+            "js": "src/extend.js"
+        },
+        "gkeypath": {
+            "js": "src/keypath.js"
+        }
+    }
+}

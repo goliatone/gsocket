@@ -24,7 +24,7 @@ module.exports = function(grunt) {
     grunt.initConfig({
         config: config,
         livereload: {
-            port: 35723
+            port: 33323
         },
         watch: {
             livereload: {

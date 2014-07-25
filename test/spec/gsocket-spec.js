@@ -2,18 +2,20 @@
 beforeEach:true, sinon:true, spyOn:true , expect:true */
 /* jshint strict: false */
 define(['gsocket'], function(GSocket) {
+    window.GSocket = GSocket;
 
     var MockWebSocket = function(url, protocols) {
         this.created = true;
         this.url = url;
         this.protocols = protocols;
     };
+    MockWebSocket.prototype.send = function() {};
     MockWebSocket.prototype.close = function() {};
+
     MockWebSocket.prototype.onopen = function() {};
     MockWebSocket.prototype.onclose = function() {};
     MockWebSocket.prototype.onmessage = function() {};
     MockWebSocket.prototype.onerror = function() {};
-    MockWebSocket.prototype.send = function() {};
 
     describe('GSocket', function() {
         var gsocket;
@@ -24,7 +26,6 @@ define(['gsocket'], function(GSocket) {
 
         it('should be loaded', function() {
             expect(GSocket).toBeTruthy();
-            window.gsocket = gsocket;
             expect(gsocket).toBeTruthy();
         });
 
@@ -65,7 +66,8 @@ define(['gsocket'], function(GSocket) {
                     provider: function(url) {
                         return new MockWebSocket(url);
                     }
-                }
+                },
+                endpoint: 'ws://localhost:9000/API/websockets'
             })
         });
 
@@ -108,13 +110,14 @@ define(['gsocket'], function(GSocket) {
             });
         });
 
-        it('should try catch erros on connect from Service', function() {
+        it('should try catch errors on connect from Service', function() {
             gsocket = new GSocket({
                 config: {
                     provider: function(url) {
                         throw new Error('FAKE ERROR');
                     }
-                }
+                },
+                endpoint: 'ws://localhost:9000/API/websockets'
             });
             gsocket.connect();
             expect(gsocket.state).toEqual(GSocket.ERRORED);
@@ -124,9 +127,7 @@ define(['gsocket'], function(GSocket) {
         it('clearIds should reset timeouts', function() {
 
             GSocket.timeoutIds.forEach(function(id) {
-                gsocket[id] = setTimeout(function() {
-                    console.log('KDKDKDKD')
-                }, 100);
+                gsocket[id] = setTimeout(function() {}, 100);
             });
 
             gsocket.clearIds();
@@ -134,6 +135,21 @@ define(['gsocket'], function(GSocket) {
             GSocket.timeoutIds.forEach(function(id) {
                 expect(gsocket[id]).toBeFalsy();
             });
+        });
+
+        it('connect without an endpoint should throw error', function() {
+            gsocket = new GSocket({
+                config: {
+                    provider: function(url) {
+                        return new MockWebSocket(url);
+                    }
+                }
+            });
+
+            gsocket.connect();
+
+            expect(gsocket.state).toEqual(GSocket.ERRORED);
+            expect(gsocket.errors).toHaveLength(1);
         });
     });
 });

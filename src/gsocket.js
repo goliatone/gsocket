@@ -65,6 +65,9 @@ define('gsocket', ['extend'], function(_extend) {
             }
             return event;
         },
+        isValidEndpoint: function() {
+            return this.endpoint.match(/ws(s?):\/\//);
+        },
         /**
          * Object that will be sent as a
          * JSON string to server once per
@@ -107,6 +110,13 @@ define('gsocket', ['extend'], function(_extend) {
          */
         verbosity: 0,
         /**
+         * List of `onclose` event codes that
+         * should trigger a connection retry if
+         * enabled.
+         * @type {Array}
+         */
+        reconnectOnClose: [1006],
+        /**
          * If a connection fails, `maxtries`
          * is the number of times the client will
          * try to lift that connection.
@@ -127,14 +137,7 @@ define('gsocket', ['extend'], function(_extend) {
          * Default value 120000- 2 * (1 * 60 * 1000)
          * @type {Number}
          */
-        maxRetryTime: 2 * (1 * 60 * 1000),
-        /**
-         * List of `onclose` event codes that
-         * should trigger a connection retry if
-         * enabled.
-         * @type {Array}
-         */
-        reconnectOnClose: [1006],
+        maxRetryTime: 2 * /*retrytime*/ (1 * 60 * 1000),
         /**
          * Time in milliseconds that has to
          * pass for a connection to be considered
@@ -142,7 +145,7 @@ define('gsocket', ['extend'], function(_extend) {
          * Default is 90000- 1.5 * 60 * 1000
          * @type {Number}
          */
-        timeout: 90000, //We should set it to something more like 20000
+        timeout: 0.5 * 60 * 1000, //We should set it to something more like 20000
         /**
          * Time in milliseconds between heartbeats
          * if enabled.
@@ -227,6 +230,7 @@ define('gsocket', ['extend'], function(_extend) {
 
     ///////////////////////////////////////////////////
     // CONSTRUCTOR
+    // TODO: Move connection management to Supervisor
     ///////////////////////////////////////////////////
 
     /**
@@ -235,7 +239,10 @@ define('gsocket', ['extend'], function(_extend) {
      * @param  {object} config Configuration object.
      */
     function GSocket(config) {
+        this.ID = Date.now();
+
         config = config || {};
+
         this.init(config);
     };
 
@@ -272,13 +279,22 @@ define('gsocket', ['extend'], function(_extend) {
      * Establish connection with service
      * @return {this}
      */
-    GSocket.prototype.connect = function() {
+    GSocket.prototype.connect = function(endpoint) {
+        //TODO: Should we be able to abort current connection?
+        if (this.state === GSocket.CONNECTING) return;
+
+        endpoint && (this.endpoint = endpoint);
+
         try {
+
+            this.validateEndpoint();
+
             var Service = this.config.provider;
             this.service = new Service(this.endpoint);
 
             this.clearIds();
 
+            this.tries = 1;
             this.state = GSocket.CONNECTING;
             this.timeoutId = setTimeout(this.handleTimeout.bind(this), this.timeout);
 
@@ -287,6 +303,8 @@ define('gsocket', ['extend'], function(_extend) {
             this.service.onclose = this.onClosed.bind(this);
             this.service.onmessage = this.onMessage.bind(this);
         } catch (e) {
+            //TODO: How should we handle this? Should we actually throw them?
+            //add strict mode?
 
             /* We can get a different errors:
              * code 12: Wrong protocol, wrong URL
@@ -301,6 +319,11 @@ define('gsocket', ['extend'], function(_extend) {
         }
 
         return this;
+    };
+
+    GSocket.prototype.validateEndpoint = function() {
+        if (!this.endpoint) throw new Error('GSocket needs endpoint!');
+        if (!this.isValidEndpoint()) throw new Error('GSocket needs valid endpoint!')
     };
 
     /**
@@ -333,6 +356,7 @@ define('gsocket', ['extend'], function(_extend) {
     /**
      * Timeout watcher. When we request a connection,
      * we monitor the time it takes to happen.
+     *
      * @return {this}
      */
     GSocket.prototype.handleTimeout = function() {
@@ -365,7 +389,7 @@ define('gsocket', ['extend'], function(_extend) {
 
         this.logger.log('send ', message);
 
-        if (typeof message !== 'object') message.timestamp = Date.now();
+        if (typeof message === 'object') message.timestamp = Date.now();
 
         if (typeof message !== 'string') message = JSON.stringify(message);
 
@@ -482,7 +506,7 @@ define('gsocket', ['extend'], function(_extend) {
      * @param  {Object} event Server event
      */
     GSocket.prototype.onError = function(event) {
-        this.logger.log('on error', event);
+        this.logger.error(this, 'on error', event);
 
         this.errors.push(event);
 
@@ -510,7 +534,9 @@ define('gsocket', ['extend'], function(_extend) {
 
         //We should check out the readyState:
         clearTimeout(this.timeoutId);
-        this.retryId = setTimeout(this.retryConnection.bind(this), this.getRetryTime());
+        var retryIn = this.getRetryTime();
+        this.logger.warn(this, 'retrying in', retryIn);
+        this.retryId = setTimeout(this.retryConnection.bind(this), retryIn);
     };
 
     /**
@@ -519,7 +545,7 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.retryConnection = function() {
         //Let's increase the try counter.
-        ++this.tries;
+        this.tries += 1;
         this.logger.log('retryConnection', this.tries, new Date().toString().split(" ")[4]);
         this.connect();
     };
@@ -591,8 +617,9 @@ define('gsocket', ['extend'], function(_extend) {
     /**
      * PubSub emit method stub.
      */
+    // GSocket.prototype.emit = _shimConsole(console);
     GSocket.prototype.emit = function() {
-        this.logger.warn(GSocket.name, 'emit method is not implemented', arguments);
+        console.info('EMIT not imp', arguments);
     };
 
     return GSocket;

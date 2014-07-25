@@ -56,3 +56,25 @@ _(Coming soon)_
 
 ## Release History
 _(Nothing yet)_
+
+
+## Notes:
+
+http://pusher.com/docs/pusher_protocol
+
+```
+Clients may close the WebSocket connection at any time.
+
+The Pusher server may choose to close the WebSocket connection, in which case a close code and reason will be sent.
+
+Clients SHOULD support the following 3 ranges
+
+4000-4099: The connection SHOULD NOT be re-established unchanged.
+
+4100-4199: The connection SHOULD be re-established after backing off. The back-off time SHOULD be at least 1 second in duration and MAY be exponential in nature on consecutive failures.
+
+4200-4299: The connection SHOULD be re-established immediately.
+
+Clients MAY handle specific close codes in particular way, but this is generally not necessary. See error codes below for a list of errors.
+```
+

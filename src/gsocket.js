@@ -55,6 +55,12 @@ define('gsocket', ['extend'], function(_extend) {
         autoconnect: true,
         /**
          * Process service event to handle data
+         *
+         * TODO: This discards the original server
+         * event and only returns the data object.
+         * Is this really the implementation that we
+         * want as default?!
+         *
          * @param  {MessageEvent} event WebSocket event.
          * @return {Object}
          */
@@ -73,7 +79,7 @@ define('gsocket', ['extend'], function(_extend) {
             return event;
         },
         isValidEndpoint: function() {
-            return this.endpoint.match(/ws(s?):\/\//);
+            return !!this.endpoint.match(/^ws(s?):\/\//);
         },
         /**
          * Object that will be sent as a

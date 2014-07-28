@@ -11,9 +11,11 @@ requirejs.config({
 define(['gsocket', 'jquery'], function(GSocket, $) {
     console.log('Loading');
     var gsocket = new GSocket({
-        endpoint: 'ws://localhost:9003',
-        endpoint: 'ws://localhost:9002',
-        emit: console
+        endpoint: 'ws://localhost:9000',
+        emit: function() {
+            console.log(arguments)
+        }
     });
+
     window.gs = gsocket;
 });

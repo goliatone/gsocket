@@ -123,6 +123,12 @@ define('gsocket', ['extend'], function(_extend) {
          */
         verbosity: 0,
         /**
+         * Enable error logging using provided
+         * logger.
+         * @type {Boolean}
+         */
+        logErrors: true,
+        /**
          * List of `onclose` event codes that
          * should trigger a connection retry if
          * enabled.
@@ -320,6 +326,8 @@ define('gsocket', ['extend'], function(_extend) {
          state.
          */
         this.state = state ? state : GSocket.CLOSED;
+
+        this.clearIds();
     };
 
     /**
@@ -355,7 +363,7 @@ define('gsocket', ['extend'], function(_extend) {
             /* We can get a different errors:
              * code 12: Wrong protocol, wrong URL
              */
-            this.logger.error(e);
+            this.logErrors && this.logger.error(e);
 
             this.errors.push(e);
 
@@ -553,7 +561,7 @@ define('gsocket', ['extend'], function(_extend) {
      * @param  {Object} event Server event
      */
     GSocket.prototype.onError = function(event) {
-        this.logger.error(this.name, 'on error', event);
+        this.logErrors && this.logger.error(this.name, 'on error', event);
 
         this.errors.push(event);
 

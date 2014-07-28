@@ -287,6 +287,22 @@ define('gsocket', ['extend'], function(_extend) {
     // PUBLIC METHODS
     ///////////////////////////////////////////////////
 
+    /**
+     * Initialize and configure instance.
+     *
+     * You can provide a configuration object with
+     * properties and methods to override the instance.
+     * This object will be merged with the `DEFAULTS`
+     * object.
+     *
+     * You should only call this method once. After the
+     * first call an `initialized` variable will be set
+     * to `true`. We check for this variable, if truthy
+     * then we skip the method.
+     *
+     * @param  {Object} config Configuration object.
+     * @return {this}
+     */
     GSocket.prototype.init = function(config) {
         if (this.initialized) return this.logger.warn('Already initialized');
         this.initialized = true;
@@ -304,6 +320,14 @@ define('gsocket', ['extend'], function(_extend) {
         return this;
     };
 
+    /**
+     * Reset state. It will clear timer/interval
+     * ids, reset number of tries to 0, erase the
+     * message queue and the error list.
+     *
+     * @param  {Number} state State code.
+     * @return {this}
+     */
     GSocket.prototype.reset = function(state) {
         /*
          Queue, all messages should be managed and on connection failure we
@@ -328,6 +352,8 @@ define('gsocket', ['extend'], function(_extend) {
         this.state = state ? state : GSocket.CLOSED;
 
         this.clearIds();
+
+        return this;
     };
 
     /**
@@ -582,7 +608,7 @@ define('gsocket', ['extend'], function(_extend) {
          */
         if (this.tries === this.maxtries) {
             this.logger.warn('onError: Not handling reconnection.');
-            return event;
+            return false;
         }
 
         this.state = GSocket.CLOSING;
@@ -593,6 +619,8 @@ define('gsocket', ['extend'], function(_extend) {
         var retryIn = this.getRetryTime();
         this.logger.warn(this.name, 'retrying in', retryIn);
         this.retryId = this.setTimeout(this.retryConnection.bind(this), retryIn);
+
+        return thsi.retryId;
     };
 
     /**

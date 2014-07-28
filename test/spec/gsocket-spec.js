@@ -64,13 +64,68 @@ define(['gsocket'], function(GSocket) {
             expect(GSocket.prototype.name).toEqual('GSocket');
         });
 
-        xit('once initialized it should not execute the init method more than once', function() {
-            var spy = sinon.spy(GSocket, 'extend');
-            gsocket = new GSocket();
+        it('once initialized it should not execute the init method more than once', function() {
+            var spy = sinon.spy(GSocket.prototype, 'init');
+            gsocket = new GSocket({});
             gsocket.init();
             expect(gsocket.initialized).toBeTruthy();
             expect(spy).toHaveBeenCalledTwice();
-            GSocket.extend.restore();
+            GSocket.prototype.init.restore();
+        });
+
+        it('on init it should reset', function() {
+            var spy = sinon.spy(GSocket.prototype, 'reset');
+            gsocket = new GSocket({});
+            expect(spy).toHaveBeenCalledOnce();
+            GSocket.prototype.reset.restore();
+        });
+
+        it('reset should set state to GSocket.CLOSED', function() {
+            gsocket = new GSocket({});
+            gsocket.state = 'SOMETHING';
+            gsocket.reset();
+            expect(gsocket.state).toEqual(GSocket.CLOSED);
+        });
+
+        it('reset should take a state argument GSocket.CLOSED', function() {
+            gsocket = new GSocket({});
+            gsocket.state = 'SOMETHING';
+            gsocket.reset(GSocket.ERRORED);
+            expect(gsocket.state).toEqual(GSocket.ERRORED);
+        });
+
+        it('reset should set number of tries to 0', function() {
+            gsocket = new GSocket({});
+            gsocket.tries = 333;
+            gsocket.reset();
+            expect(gsocket.tries).toEqual(0);
+        });
+
+        it('reset should clean up message queue and errors', function() {
+            gsocket = new GSocket({});
+            gsocket.errors.push('errors');
+            gsocket.messages.push('message');
+            gsocket.reset();
+            expect(gsocket.errors.length).toEqual(0);
+            expect(gsocket.messages.length).toEqual(0);
+        });
+
+        it('if autoconnect option is true we should connect on constructor', function() {
+            var spy = sinon.spy(GSocket.prototype, 'connect');
+            gsocket = new GSocket({
+                autoconnect: true
+            });
+            expect(spy).toHaveBeenCalledOnce();
+            GSocket.prototype.connect.restore();
+        });
+
+        it('if autoconnect option is false we should manutally connect', function() {
+            var spy = sinon.spy(GSocket.prototype, 'connect');
+            gsocket = new GSocket({
+                autoconnect: false
+            });
+            expect(spy.callCount).toEqual(0);
+            GSocket.prototype.connect.restore();
         });
     });
 

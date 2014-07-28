@@ -18,6 +18,8 @@ define(['gsocket'], function(GSocket) {
         spies.forEach(function(method) {
             this[method] = sinon.spy();
         }.bind(this));
+
+        this.readyState = -2;
     };
 
     /*
@@ -172,6 +174,70 @@ define(['gsocket'], function(GSocket) {
             expect(out).toEqual(false);
             expect(spy.callCount).toEqual(0);
             gsocket.onError.restore();
+        });
+
+        it('handleTimeout should call onError if reconnectAfterTimeout is set to true', function() {
+            var spy = sinon.spy(gsocket, 'onError');
+            gsocket.reconnectAfterTimeout = true;
+            var out = gsocket.handleTimeout();
+            expect(out).toEqual(true);
+            expect(spy.callCount).toEqual(1);
+            gsocket.onError.restore();
+        });
+
+        it('send should buffer messages into queue if service is NOT GSocket.OPEN', function() {
+            gsocket.send("message");
+            gsocket.send("message");
+            gsocket.send("message");
+            expect(gsocket.messages.length).toEqual(3);
+        });
+
+        it('send should NOT buffer messages into queue if service is GSocket.OPEN', function() {
+            gsocket.service.readyState = GSocket.OPEN;
+            gsocket.send("message");
+            gsocket.send("message");
+            gsocket.send("message");
+            expect(gsocket.messages.length).toEqual(0);
+        });
+
+        it('send will NOT buffer messages if second argument is false', function() {
+            gsocket.send("message");
+            gsocket.send("message", false);
+            gsocket.send("message", false);
+            expect(gsocket.messages.length).toEqual(1);
+        });
+
+        it('send will add a timestamp to message argument if it is an object', function() {
+            gsocket.service.readyState = GSocket.OPEN;
+            var message = {};
+            gsocket.send(message);
+            expect(message).toHaveProperties(['timestamp']);
+        });
+
+        it('send will stringify message argument if it is an object', function() {
+            gsocket.service.readyState = GSocket.OPEN;
+            var message = {
+                message: "something"
+            };
+            gsocket.send(message);
+            expect(gsocket.service.send).toHaveBeenCalledOnce();
+            var args = gsocket.service.send.args[0];
+            expect(args).toHaveLength(1);
+            expect(args[0]).toBeOfType('string');
+        });
+
+        it('onConnected we should send a handshake', function() {
+            var spy = sinon.spy(gsocket, 'sendHandshake');
+            gsocket.onConnected();
+            expect(spy).toHaveBeenCalledOnce();
+        });
+
+        it('onConnected should reset and set state to GSocket.OPEN', function() {
+
+        });
+
+        it('onConnected should empty message queue if there are messages', function() {
+
         });
     });
 

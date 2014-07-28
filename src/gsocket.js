@@ -456,6 +456,7 @@ define('gsocket', ['extend'], function(_extend) {
             message: 'Client timeout after ' + this.timeout
         });
 
+        return true;
     };
 
     /**
@@ -624,7 +625,7 @@ define('gsocket', ['extend'], function(_extend) {
         this.logger.warn(this.name, 'retrying in', retryIn);
         this.retryId = this.setTimeout(this.retryConnection.bind(this), retryIn);
 
-        return thsi.retryId;
+        return this.retryId;
     };
 
     /**
@@ -677,7 +678,7 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.sendHandshake = function() {
         if (this.verbosity < 1) return this;
-        this.send(this.handshake) && this.messages.pop();
+        this.send(this.handshake, false);
         return this;
     };
 

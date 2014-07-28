@@ -307,7 +307,7 @@ define('gsocket', ['extend'], function(_extend) {
         if (this.initialized) return this.logger.warn('Already initialized');
         this.initialized = true;
 
-        this.logger.log('GSocket: Init!');
+        this.logger.log('GSocket: ' + this.ID + ' Init!');
 
         config = _extend({}, this.constructor.DEFAULTS, config);
 
@@ -382,6 +382,7 @@ define('gsocket', ['extend'], function(_extend) {
             this.service.onopen = this.onConnected.bind(this);
             this.service.onclose = this.onClosed.bind(this);
             this.service.onmessage = this.onMessage.bind(this);
+
         } catch (e) {
             //TODO: How should we handle this? Should we actually throw them?
             //add strict mode?
@@ -436,17 +437,20 @@ define('gsocket', ['extend'], function(_extend) {
      * we monitor the time it takes to happen.
      *
      * @return void
+     * @private
      */
     GSocket.prototype.handleTimeout = function() {
-        this.service.close();
+
+        _isFunction(this.service, 'close') && this.service.close();
+
         this.service = null;
 
         this.state = GSocket.TIMEDOUT;
 
         this.logger.warn('Connection timed out');
 
-        if (!this.hasOwnProperty('reconnectAfterTimeout')) return;
-        if (this.reconnectAfterTimeout === false) return;
+        if (!this.hasOwnProperty('reconnectAfterTimeout')) return false;
+        if (this.reconnectAfterTimeout === false) return false;
 
         this.onError({
             message: 'Client timeout after ' + this.timeout
@@ -725,9 +729,11 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.clearTimeInterval = function(id) {
         if (!this.hasOwnProperty(id)) return this;
+
         clearTimeout(this[id]);
         clearInterval(this[id]);
         this[id] = undefined;
+
         return this;
     };
 

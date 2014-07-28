@@ -232,12 +232,49 @@ define(['gsocket'], function(GSocket) {
             expect(spy).toHaveBeenCalledOnce();
         });
 
-        it('onConnected should reset and set state to GSocket.OPEN', function() {
-
+        it('onConnected we should send a handshake only if we are not in GSocket.OPEN', function() {
+            var spy = sinon.spy(gsocket, 'sendHandshake');
+            gsocket.state = GSocket.OPEN;
+            gsocket.onConnected();
+            expect(spy.callCount).toEqual(0);
         });
 
-        it('onConnected should empty message queue if there are messages', function() {
+        it('onConnected should reset and set state to GSocket.OPEN', function() {
+            var spy = sinon.spy(gsocket, 'sendHandshake');
+            gsocket.onConnected();
+            expect(gsocket.state).toBe(GSocket.OPEN);
+            expect(spy.callCount).toEqual(1);
+        });
 
+        it('onConnected should flush message queue if there are messages', function() {
+            var spy = sinon.spy(gsocket, 'send');
+            gsocket.messages.push("message");
+            gsocket.messages.push("message");
+            gsocket.messages.push("message");
+            gsocket.onConnected();
+            expect(spy.callCount).toEqual(3);
+        });
+
+        it('onConnected should not flush message queue if there are no messages', function() {
+            var spy = sinon.spy(gsocket, 'send');
+            gsocket.onConnected();
+            expect(spy.callCount).toEqual(0);
+        });
+
+        it('onConnected should sendHeartbeat', function() {
+            var spy = sinon.spy(gsocket, 'sendHeartbeat');
+            gsocket.onConnected();
+            expect(spy.callCount).toEqual(1);
+        });
+
+        it('onConnected should emit connected event', function() {
+            var spy = sinon.spy(gsocket, 'emit');
+            gsocket.onConnected();
+            expect(spy.callCount).toEqual(1);
+            var args = spy.args[0];
+            expect(args).toHaveLength(1);
+            expect(args[0]).toBeOfType('string');
+            expect(args[0]).toEqual('connected');
         });
     });
 

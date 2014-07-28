@@ -20,27 +20,25 @@ define(['gsocket'], function(GSocket) {
         }.bind(this));
     };
 
-    // MockWebSocket.prototype.send = function() {};
-    // MockWebSocket.prototype.close = function() {};
+    /*
+     Disable logging errors to console,
+     */
+    GSocket.DEFAULTS.logErrors = false;
+    GSocket.DEFAULTS.config = {
+        provider: function(url) {
+            return new MockWebSocket(url);
+        }
+    };
+    GSocket.DEFAULTS.endpoint = 'ws://localhost:9000/API/websockets'
 
-    // MockWebSocket.prototype.onopen = function() {};
-    // MockWebSocket.prototype.onclose = function() {};
-    // MockWebSocket.prototype.onmessage = function() {};
-    // MockWebSocket.prototype.onerror = function() {};
+    GSocket.DEFAULTS.emit = noop;
+    GSocket.DEFAULTS.reconnectAfterTimeout = false;
 
     describe('GSocket', function() {
         var gsocket;
 
         beforeEach(function() {
-            gsocket = new GSocket({
-                config: {
-                    provider: function(url) {
-                        return new MockWebSocket(url);
-                    }
-                },
-                emit: noop,
-                endpoint: 'ws://localhost:9000/API/websockets'
-            });
+            gsocket = new GSocket({});
         });
 
         it('should be loaded', function() {
@@ -68,10 +66,7 @@ define(['gsocket'], function(GSocket) {
 
         xit('once initialized it should not execute the init method more than once', function() {
             var spy = sinon.spy(GSocket, 'extend');
-            gsocket = new GSocket({
-                emit: noop,
-                endpoint: 'ws://localhost:9000/API/websockets'
-            });
+            gsocket = new GSocket();
             gsocket.init();
             expect(gsocket.initialized).toBeTruthy();
             expect(spy).toHaveBeenCalledTwice();
@@ -83,16 +78,7 @@ define(['gsocket'], function(GSocket) {
         var gsocket;
 
         beforeEach(function() {
-            gsocket = new GSocket({
-                config: {
-                    provider: function(url) {
-                        return new MockWebSocket(url);
-                    }
-                },
-                emit: noop,
-                reconnectAfterTimeout: false,
-                endpoint: 'ws://localhost:9000/API/websockets'
-            })
+            gsocket = new GSocket({});
         });
 
         it('isValidEndpoint should validate endpoint URL', function() {
@@ -125,9 +111,7 @@ define(['gsocket'], function(GSocket) {
             var out = gsocket.processPlatformEvent(event);
 
             expect(out).toMatchObject(data);
-
         });
-
 
         it('should connect to service', function() {
             gsocket.connect();
@@ -162,8 +146,6 @@ define(['gsocket'], function(GSocket) {
                         throw new Error('FAKE ERROR');
                     }
                 },
-                emit: noop,
-                endpoint: 'ws://localhost:9000/API/websockets',
                 autoconnect: false
 
             })
@@ -173,14 +155,13 @@ define(['gsocket'], function(GSocket) {
             });
 
             gsocket.connect();
-            console.warn('================')
+
             Object.keys(events).forEach(function(type) {
                 method = events[type];
                 gsocket.service[type].call(gsocket, {});
-                console.log('method', method, 'type', type, 'spy', spies[method].getCall(0));
                 expect(spies[method]).toHaveBeenCalled();
             });
-            console.warn('================')
+
         });
 
         it('should try catch errors on connect from Service', function() {
@@ -190,10 +171,9 @@ define(['gsocket'], function(GSocket) {
                         throw new Error('FAKE ERROR');
                     }
                 },
-                emit: noop,
-                endpoint: 'ws://localhost:9000/API/websockets'
+                autoconnect: false
             });
-            // gsocket.connect();
+            gsocket.connect();
             expect(gsocket.state).toEqual(GSocket.ERRORED);
             expect(gsocket.errors).toHaveLength(1);
         });
@@ -213,13 +193,9 @@ define(['gsocket'], function(GSocket) {
 
         it('connect without an endpoint should throw error', function() {
             gsocket = new GSocket({
-                config: {
-                    provider: function(url) {
-                        return new MockWebSocket(url);
-                    }
-                },
-                emit: noop,
-                autoconnect: false
+                autoconnect: false,
+                //We need to remove default endpoint
+                endpoint: null
             });
 
             gsocket.connect();

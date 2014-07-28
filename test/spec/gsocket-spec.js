@@ -90,9 +90,44 @@ define(['gsocket'], function(GSocket) {
                     }
                 },
                 emit: noop,
+                reconnectAfterTimeout: false,
                 endpoint: 'ws://localhost:9000/API/websockets'
             })
         });
+
+        it('isValidEndpoint should validate endpoint URL', function() {
+            gsocket.endpoint = 'http://localhost:9000/API/websockets';
+            expect(gsocket.isValidEndpoint()).toBeFalsy();
+
+            gsocket.endpoint = 'ws://localhost:9000/API/websockets';
+            expect(gsocket.isValidEndpoint()).toBeTruthy();
+
+            gsocket.endpoint = 'wss://localhost:9000/API/websockets';
+            expect(gsocket.isValidEndpoint()).toBeTruthy();
+        });
+
+        it('should have a default platform event processor', function() {
+            expect(gsocket).toHaveMethods(['processPlatformEvent']);
+        });
+
+        it('processPlatformEvent should parse event string data into object', function() {
+            var data = {
+                name: 'Peperone',
+                age: 23,
+                email: 'peperone@gmail.com'
+            };
+            var event = {
+                event: 'scene_change',
+                type: 'command'
+            };
+            event.data = JSON.stringify(data);
+
+            var out = gsocket.processPlatformEvent(event);
+
+            expect(out).toMatchObject(data);
+
+        });
+
 
         it('should connect to service', function() {
             gsocket.connect();

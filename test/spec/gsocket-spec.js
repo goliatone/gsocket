@@ -276,6 +276,56 @@ define(['gsocket'], function(GSocket) {
             expect(args[0]).toBeOfType('string');
             expect(args[0]).toEqual('connected');
         });
+
+        it('onClosed should sendHeartbeat', function() {
+            gsocket.onClosed();
+            expect(gsocket.state).toBe(GSocket.CLOSED);
+        });
+
+        it('onClosed should emit closing event', function() {
+            var spy = sinon.spy(gsocket, 'emit');
+            var event = {
+                event: 'onclosed',
+                message: 'message'
+            };
+            gsocket.onClosed(event);
+            expect(spy.callCount).toEqual(1);
+            expect(spy.calledWith('closing', event)).toBeTruthy();
+        });
+
+        it('onClosed should return false if it does not have a reconnectOnClose prop', function() {
+            delete gsocket.reconnectOnClose;
+            var out = gsocket.onClosed(event);
+            expect(out).toEqual(false);
+        });
+
+        it('onClosed should return false if it does not have an event argument', function() {
+            var out = gsocket.onClosed();
+            expect(out).toEqual(false);
+        });
+
+        it('onClosed should NOT handle error if code 1006 is not present in event', function() {
+            var spy = sinon.spy(gsocket, 'onError');
+            var event = {
+                event: 'onclosed',
+                message: 'message'
+            };
+            var out = gsocket.onClosed(event);
+            expect(spy.callCount).toEqual(0);
+            expect(spy.calledWith(event)).toBeFalsy();
+        });
+
+        it('onClosed should handle error code 1006 by default', function() {
+            var spy = sinon.spy(gsocket, 'onError');
+            var event = {
+                event: 'onclosed',
+                message: 'message',
+                code: 1006
+            };
+            var out = gsocket.onClosed(event);
+            expect(spy.callCount).toEqual(1);
+            expect(spy.calledWith(event)).toBeTruthy();
+        });
     });
 
     describe('GSocket', function() {

@@ -47,6 +47,13 @@ define('gsocket', ['extend'], function(_extend) {
 
     var options = {
         /**
+         * Should the instance try to connect on
+         * `init` or wait for an explicit call to
+         * `connect`
+         * @type {Boolean}
+         */
+        autoconnect: true,
+        /**
          * Process service event to handle data
          * @param  {MessageEvent} event WebSocket event.
          * @return {Object}
@@ -117,6 +124,12 @@ define('gsocket', ['extend'], function(_extend) {
          */
         reconnectOnClose: [1006],
         /**
+         * Should the client to connect again
+         * after a timeout?
+         * @type {Boolean}
+         */
+        reconnectAfterTimeout: true,
+        /**
          * If a connection fails, `maxtries`
          * is the number of times the client will
          * try to lift that connection.
@@ -177,7 +190,7 @@ define('gsocket', ['extend'], function(_extend) {
      *
      * @type {Object}
      */
-    GSocket.DEFAULTS = options;
+    GSocket.DEFAULTS = _extend({}, options);
 
     /**
      * The connection is not yet open.
@@ -213,6 +226,18 @@ define('gsocket', ['extend'], function(_extend) {
      * Timeout value is configurable.
      */
     GSocket.TIMEDOUT = -2;
+
+    /**
+     * State code to string
+     */
+    GSocket.STATES = {
+        0: 'CONNECTING',
+        1: 'OPEN',
+        2: 'CLOSING',
+        3: 'CLOSED',
+        '-1': 'ERRORED',
+        '-2': 'TIMEDOUT'
+    };
 
     /**
      * ON_CONNECTED event type
@@ -260,19 +285,35 @@ define('gsocket', ['extend'], function(_extend) {
 
         _extend(this, config);
 
-        //Queue, all messages should be managed and on connection failure we
-        //should be able to recover.
-        this.messages = [];
+        this.reset();
 
-        //Store connection errors.
-        this.errors = [];
-
-        //reset connection handling
-        this.tries = 0;
-
-        this.state = GSocket.CLOSED;
+        if (this.autoconnect) this.connect();
 
         return this;
+    };
+
+    GSocket.prototype.reset = function(state) {
+        /*
+         Queue, all messages should be managed and on connection failure we
+         should be able to recover.
+         */
+        this.messages = [];
+
+        /*
+         Restore connection errors.
+         */
+        this.errors = [];
+
+        /*
+         reset connection handling
+         */
+        this.tries = 0;
+
+        /*
+         reset state to default state or passed in
+         state.
+         */
+        this.state = state ? state : GSocket.CLOSED;
     };
 
     /**
@@ -294,9 +335,8 @@ define('gsocket', ['extend'], function(_extend) {
 
             this.clearIds();
 
-            this.tries = 1;
             this.state = GSocket.CONNECTING;
-            this.timeoutId = setTimeout(this.handleTimeout.bind(this), this.timeout);
+            this.timeoutId = this.setTimeout(this.handleTimeout.bind(this), this.timeout);
 
             this.service.onerror = this.onError.bind(this);
             this.service.onopen = this.onConnected.bind(this);
@@ -333,9 +373,7 @@ define('gsocket', ['extend'], function(_extend) {
     GSocket.timeoutIds = ['retryId', 'timeoutId', 'heartbeatId'];
     GSocket.prototype.clearIds = function() {
         GSocket.timeoutIds.forEach(function(id) {
-            clearTimeout(this[id]);
-            clearInterval(this[id]);
-            this[id] = undefined;
+            this.clearTimeInterval(id);
         }, this);
     };
 
@@ -357,7 +395,7 @@ define('gsocket', ['extend'], function(_extend) {
      * Timeout watcher. When we request a connection,
      * we monitor the time it takes to happen.
      *
-     * @return {this}
+     * @return void
      */
     GSocket.prototype.handleTimeout = function() {
         this.service.close();
@@ -367,7 +405,13 @@ define('gsocket', ['extend'], function(_extend) {
 
         this.logger.warn('Connection timed out');
 
-        return this;
+        if (!this.hasOwnProperty('reconnectAfterTimeout')) return;
+        if (this.reconnectAfterTimeout === false) return;
+
+        this.onError({
+            message: 'Client timeout after ' + this.timeout
+        });
+
     };
 
     /**
@@ -408,26 +452,23 @@ define('gsocket', ['extend'], function(_extend) {
         //should we check for pong response? return this.send(JSON.stringify(this.handshake));
         if (this.state !== GSocket.OPEN) this.sendHandshake();
 
-        this.tries = 0;
-        this.state = GSocket.OPEN;
+        var messages = this.messages.concat();
 
-        this.clearIds();
+        this.reset(GSocket.OPEN);
 
         this.sendHeartbeat();
 
         this.emit('connected');
 
-        if (this.messages.length === 0) return;
+        if (messages.length === 0) return;
 
         /*
          * We do have queued up messages, just sent them.
          * TODO: Should we throttle send messages?
          */
-        this.messages.forEach(function(message) {
+        messages.forEach(function(message) {
             this.send(message);
         }, this);
-
-        this.messages = [];
     };
 
     /**
@@ -506,7 +547,7 @@ define('gsocket', ['extend'], function(_extend) {
      * @param  {Object} event Server event
      */
     GSocket.prototype.onError = function(event) {
-        this.logger.error(this, 'on error', event);
+        this.logger.error(this.name, 'on error', event);
 
         this.errors.push(event);
 
@@ -533,10 +574,11 @@ define('gsocket', ['extend'], function(_extend) {
         this.state = GSocket.CLOSING;
 
         //We should check out the readyState:
-        clearTimeout(this.timeoutId);
+        this.clearTimeInterval('timeoutId');
+
         var retryIn = this.getRetryTime();
-        this.logger.warn(this, 'retrying in', retryIn);
-        this.retryId = setTimeout(this.retryConnection.bind(this), retryIn);
+        this.logger.warn(this.name, 'retrying in', retryIn);
+        this.retryId = this.setTimeout(this.retryConnection.bind(this), retryIn);
     };
 
     /**
@@ -568,7 +610,7 @@ define('gsocket', ['extend'], function(_extend) {
         if (this.verbosity < 2) return this;
 
         if (!this.heartbeatId) {
-            return this.heartbeatId = setInterval(this.sendHeartbeat.bind(this), this.keepalive);
+            return this.heartbeatId = this.setInterval(this.sendHeartbeat.bind(this), this.keepalive);
         }
 
         if (this.state !== GSocket.OPEN) return this;
@@ -603,6 +645,48 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.processPlatformEvent = function(event) {
         return event;
+    };
+
+    /**
+     * `setTimeout` implementation.
+     * Mostly for mocking/unit testing.
+     *
+     * @param {Function} callback
+     * @param {Number}   delay
+     * @private
+     */
+    GSocket.prototype.setTimeout = function(callback, delay) {
+        return setTimeout(callback, delay);
+    };
+
+    /**
+     * `setInterval` implementation.
+     * Mostly for mocking/unit testing.
+     *
+     * @param {Function} callback
+     * @param {Number}   delay
+     * @private
+     */
+    GSocket.prototype.setInterval = function(callback, delay) {
+        return setInterval(callback, delay);
+    };
+
+    /**
+     * Clears timeout and interval id.
+     * Mostly for mocking/unit testing.
+     *
+     * @param  {String} id Name of property holding
+     *                     either an interval id or an
+     *                     timeout id.
+     * @return {this}
+     * @private
+     */
+    GSocket.prototype.clearTimeInterval = function(id) {
+        if (!this.hasOwnProperty(id)) return this;
+        clearTimeout(this[id]);
+        clearInterval(this[id]);
+        this[id] = undefined;
+        return this;
     };
 
     /**

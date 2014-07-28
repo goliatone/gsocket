@@ -119,13 +119,59 @@ define(['gsocket'], function(GSocket) {
             GSocket.prototype.connect.restore();
         });
 
-        it('if autoconnect option is false we should manutally connect', function() {
+        it('if autoconnect option is false we should manually connect', function() {
             var spy = sinon.spy(GSocket.prototype, 'connect');
             gsocket = new GSocket({
                 autoconnect: false
             });
             expect(spy.callCount).toEqual(0);
             GSocket.prototype.connect.restore();
+        });
+
+        it('clearIds should reset all timeout/intervals and remove ids', function() {
+            var spy = sinon.spy(gsocket, 'clearTimeInterval');
+
+            GSocket.timeoutIds.forEach(function(id) {
+                gsocket[id] = gsocket.ID;
+            });
+
+            gsocket.clearIds();
+
+            GSocket.timeoutIds.forEach(function(id) {
+                expect(gsocket[id]).toBeFalsy();
+            });
+
+            expect(spy).toHaveBeenCalled(GSocket.timeoutIds.length);
+
+            gsocket.clearTimeInterval.restore();
+        });
+
+        it('getRetryTime should return a value capped by maxRetryTime', function() {
+            gsocket.maxRetryTime = 3333;
+            gsocket.tries = 3335;
+            expect(gsocket.getRetryTime() === gsocket.maxRetryTime).toBeTruthy();
+        });
+
+        it('handleTimeout should set the state to GSocket.TIMEDOUT', function() {
+            gsocket.handleTimeout();
+            expect(gsocket.state).toEqual(GSocket.TIMEDOUT);
+        });
+
+        it('handleTimeout should close the service layer', function() {
+            //We mocked service events as spies, hold a ref to it before
+            //we delete it on handleTimeout.
+            var serviceClose = gsocket.service.close;
+            gsocket.handleTimeout();
+            expect(serviceClose).toHaveBeenCalledOnce();
+        });
+
+        it('handleTimeout should return false and not retry to connect if reconnectAfterTimeout is set to false', function() {
+            var spy = sinon.spy(gsocket, 'onError');
+            gsocket.reconnectAfterTimeout = false;
+            var out = gsocket.handleTimeout();
+            expect(out).toEqual(false);
+            expect(spy.callCount).toEqual(0);
+            gsocket.onError.restore();
         });
     });
 

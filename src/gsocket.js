@@ -533,8 +533,8 @@ define('gsocket', ['extend'], function(_extend) {
          * it's considered an error and handled by the `onError`
          * method which might consider to retry the connection.
          */
-        if (!this.hasOwnProperty('reconnectOnClose')) return;
-        if (!event || this.reconnectOnClose.indexOf(event.code) === -1) return;
+        if (!this.hasOwnProperty('reconnectOnClose')) return false;
+        if (!event || this.reconnectOnClose.indexOf(event.code) === -1) return false;
 
         this.onError(event);
 

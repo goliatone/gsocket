@@ -176,14 +176,14 @@ define(['gsocket'], function(GSocket) {
             gsocket.onError.restore();
         });
 
-        // it('handleTimeout should call onError if reconnectAfterTimeout is set to true', function() {
-        //     var spy = sinon.spy(gsocket, 'onError');
-        //     gsocket.reconnectAfterTimeout = true;
-        //     var out = gsocket.handleTimeout();
-        //     expect(out).toEqual(true);
-        //     expect(spy.callCount).toEqual(1);
-        //     gsocket.onError.restore();
-        // });
+        it('handleTimeout should call retryConnection if reconnectAfterTimeout is set to true', function() {
+            var spy = sinon.spy(gsocket, 'retryConnection');
+            gsocket.reconnectAfterTimeout = true;
+            var out = gsocket.handleTimeout();
+            expect(out).toEqual(true);
+            expect(spy.callCount).toEqual(1);
+            gsocket.retryConnection.restore();
+        });
 
         it('send should buffer messages into queue if service is NOT GSocket.OPEN', function() {
             gsocket.send("message");
@@ -315,17 +315,16 @@ define(['gsocket'], function(GSocket) {
             expect(spy.calledWith(event)).toBeFalsy();
         });
 
-        // it('onClosed should handle error code 1006 by default', function() {
-        //     var spy = sinon.spy(gsocket, 'onError');
-        //     var event = {
-        //         event: 'onclosed',
-        //         message: 'message',
-        //         code: 1006
-        //     };
-        //     var out = gsocket.onClosed(event);
-        //     expect(spy.callCount).toEqual(1);
-        //     expect(spy.calledWith(event)).toBeTruthy();
-        // });
+        it('onClosed should handle error code 1006 by default', function() {
+            var spy = sinon.spy(gsocket, 'retryConnection');
+            var event = {
+                event: 'onclosed',
+                message: 'message',
+                code: 1006
+            };
+            var out = gsocket.onClosed(event);
+            expect(spy.callCount).toEqual(1);
+        });
 
         it('onMessage should filter event payloads with processPlatformEvent', function() {
             var spy = sinon.spy(gsocket, 'processPlatformEvent');
@@ -411,12 +410,12 @@ define(['gsocket'], function(GSocket) {
             expect(gsocket.state).toEqual(GSocket.CLOSED);
         });
 
-        // it('onError should set state to GSocket.CLOSING if we try reconnect', function() {
-        //     //Prevent reconnection
-        //     expect(gsocket.state).toNotEqual(GSocket.CLOSING);
-        //     gsocket.onError({});
-        //     expect(gsocket.state).toEqual(GSocket.CLOSING);
-        // });
+        it('onError should set state to GSocket.CLOSING if we try reconnect', function() {
+            //Prevent reconnection
+            expect(gsocket.state).toNotEqual(GSocket.CLOSED);
+            gsocket.onError({});
+            expect(gsocket.state).toEqual(GSocket.CLOSED);
+        });
 
         it('onError should emit an event with type "error"', function() {
             var spy = sinon.spy(gsocket, 'emit');
@@ -429,16 +428,52 @@ define(['gsocket'], function(GSocket) {
             expect(spy.args[0][0]).toEqual('error');
         });
 
-        // it('onError should return false if over max number of tries', function() {
-        //     gsocket.tries = gsocket.maxtries = 3;
-        //     expect(gsocket.onError()).toEqual(false);
-        // });
-
-        // it('onError should try to reconnect if under max number of tries', function() {
-        //     expect(gsocket.onError()).toBeOfType('number');
-        // });
-
         it('retryConnection', function() {});
+
+        it('retryConnection should return false if over max number of tries', function() {
+            gsocket.tries = gsocket.maxtries = 3;
+            expect(gsocket.retryConnection()).toEqual(false);
+        });
+
+        it('retryConnection should reset retry interval id', function() {
+            gsocket.retryConnection();
+            expect(gsocket.retryId).toBeTruthy();
+            gsocket.tries = gsocket.maxtries = 3;
+            gsocket.retryConnection();
+            expect(gsocket.retryId).toBeFalsy();
+        });
+
+        it('retryConnection should try to reconnect if under max number of tries', function() {
+            gsocket.retryConnection();
+            expect(gsocket.state).toEqual(GSocket.RECONNECTING);
+        });
+
+        it('retryConnection should reset timeout before waiting for next reconnect', function() {
+            var spy = sinon.spy(gsocket, 'clearTimeInterval');
+            gsocket.retryConnection();
+            expect(spy).toHaveBeenCalledOnce();
+        });
+
+        it('retryConnection should recalculate retry time', function() {
+            var spy = sinon.spy(gsocket, 'getRetryTime');
+            gsocket.retryConnection();
+            expect(spy).toHaveBeenCalledOnce();
+        });
+
+        it('retryConnection should call setTimeout', function() {
+            var retry = sinon.spy(gsocket, 'getRetryTime');
+            var timeout = sinon.spy(gsocket, 'setTimeout');
+
+            gsocket.retryConnection();
+            expect(timeout).toHaveBeenCalledOnce();
+
+            var retryTime = retry.returnValues[0];
+
+            //setTimeout's second arg is the
+            expect(timeout.args[0][1]).toEqual(retryTime);
+        });
+
+
 
         it('sendHeartbeat should bail out if verbosity level is under 2', function() {
             gsocket.verbosity = 1;

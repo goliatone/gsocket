@@ -536,6 +536,10 @@ define('gsocket', ['extend'], function(_extend) {
         if (!this.hasOwnProperty('reconnectOnClose')) return false;
         if (!event || this.reconnectOnClose.indexOf(event.code) === -1) return false;
 
+        //TODO: Should we pass also an specific handler for each error
+        //code? and have onError as default?
+        //reconnectOnClose[1006] = onError
+        //reconnectOnClose[1009] = logger.log
         this.onError(event);
 
         //TODO: IMPLEMENT A RECONNECT POLICY

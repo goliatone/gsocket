@@ -403,10 +403,19 @@ define(['gsocket'], function(GSocket) {
             expect(gsocket.errors).toHaveLength(2);
         });
 
-        it('onError should set state to GSocket.CLOSED', function() {
+        it('onError should set state to GSocket.CLOSED if we do not try reconnect', function() {
+            //Prevent reconnection
+            gsocket.tries = gsocket.maxtries = 3;
             expect(gsocket.state).toNotEqual(GSocket.CLOSED);
             gsocket.onError({});
             expect(gsocket.state).toEqual(GSocket.CLOSED);
+        });
+
+        it('onError should set state to GSocket.CLOSING if we try reconnect', function() {
+            //Prevent reconnection
+            expect(gsocket.state).toNotEqual(GSocket.CLOSING);
+            gsocket.onError({});
+            expect(gsocket.state).toEqual(GSocket.CLOSING);
         });
 
         it('onError should emit an event with type "error"', function() {
@@ -417,7 +426,7 @@ define(['gsocket'], function(GSocket) {
             gsocket.onError(event);
             expect(spy.callCount).toEqual(1);
             expect(spy.args[0].length).toEqual(2);
-            expect(spy).toHaveBeenCalledWith(['error', event]);
+            expect(spy.args[0][0]).toEqual('error');
         });
 
         it('onError should return false if over max number of tries', function() {
@@ -459,6 +468,48 @@ define(['gsocket'], function(GSocket) {
             var state = gsocket.sendHeartbeat();
             expect(state).toEqual(gsocket.state);
         });
+
+        it('sendHeartbeat should add a timestamp to the heartbeat beat property', function() {
+            gsocket.verbosity = 2;
+            gsocket.state = GSocket.OPEN;
+
+            gsocket.sendHeartbeat();
+            gsocket.sendHeartbeat();
+
+            expect(gsocket.heartbeat.beat).toBeOfType('number');
+        });
+
+        it('sendHeartbeat should send the heartbeat to platform', function() {
+            var spy = sinon.spy(gsocket, 'send');
+            gsocket.verbosity = 2;
+            gsocket.state = GSocket.OPEN;
+
+            gsocket.sendHeartbeat();
+            gsocket.sendHeartbeat();
+
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy.args[0][0]).toMatchObject(gsocket.heartbeat);
+        });
+
+        it('sendHandshake should return false if verbose level does not support handshake', function() {
+            gsocket.verbosity = 0;
+            expect(gsocket.sendHandshake()).toBe(false);
+        });
+
+        it('sendHandshake should send the handshake object to server', function() {
+            gsocket.verbosity = 3;
+            var spy = sinon.spy(gsocket, 'send');
+            gsocket.sendHandshake();
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy.args[0][0]).toEqual(gsocket.handshake);
+        });
+
+        it('sendHandshake should not queue if there is no connection', function() {
+            gsocket.service.readyState = GSocket.CLOSED;
+            gsocket.sendHandshake();
+            expect(gsocket.messages).toHaveLength(0);
+        });
+
     });
 
     describe('GSocket', function() {

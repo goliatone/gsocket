@@ -246,8 +246,9 @@ define('gsocket', ['extend'], function(_extend) {
     GSocket.STATES = {
         0: 'CONNECTING',
         1: 'OPEN',
-        2: 'CLOSING',
+        // 2: 'CLOSING', This is only really imp by transport!
         3: 'CLOSED',
+        4: 'RECONNECTING',
         '-1': 'ERRORED',
         '-2': 'TIMEDOUT'
     };
@@ -374,7 +375,10 @@ define('gsocket', ['extend'], function(_extend) {
             var Service = this.config.provider;
             this.service = new Service(this.endpoint);
 
+            this.tries += 1; //<== Move this to connect
             this.clearIds();
+
+            this.logger.log('Connect', this.tries, new Date().toString().split(" ")[4]);
 
             this.state = GSocket.CONNECTING;
             this.timeoutId = this.setTimeout(this.handleTimeout.bind(this), this.timeout);
@@ -385,19 +389,11 @@ define('gsocket', ['extend'], function(_extend) {
             this.service.onmessage = this.onMessage.bind(this);
 
         } catch (e) {
-            //TODO: How should we handle this? Should we actually throw them?
-            //add strict mode?
-
-            /* We can get a different errors:
+            /*
+             * We can get a different errors:
              * code 12: Wrong protocol, wrong URL
              */
-            this.logErrors && this.logger.error(e);
-
-            this.errors.push(e);
-
-            this.state = GSocket.ERRORED;
-
-            this.emit('error', event);
+            this.onError(e);
         }
 
         return this;
@@ -453,9 +449,7 @@ define('gsocket', ['extend'], function(_extend) {
         if (!this.hasOwnProperty('reconnectAfterTimeout')) return false;
         if (this.reconnectAfterTimeout === false) return false;
 
-        this.onError({
-            message: 'Client timeout after ' + this.timeout
-        });
+        this.retryConnection();
 
         return true;
     };
@@ -520,10 +514,14 @@ define('gsocket', ['extend'], function(_extend) {
     /**
      * Event handler, we got disconnected from
      * the server.
+     * CloseEvent
      * @param  {Object} event Server event.
      */
     GSocket.prototype.onClosed = function(event) {
-        this.logger.log('on disconnect', (event && event.code) || 'NO_CODE');
+        event || (event = {});
+
+        this.logger.log('on disconnect', event.code, event.reason);
+
         this.state = GSocket.CLOSED;
 
         this.emit('closing', event);
@@ -541,7 +539,8 @@ define('gsocket', ['extend'], function(_extend) {
         //code? and have onError as default?
         //reconnectOnClose[1006] = onError
         //reconnectOnClose[1009] = logger.log
-        this.onError(event);
+        // this.onError(event);
+        this.retryConnection();
 
         //TODO: IMPLEMENT A RECONNECT POLICY
         //code:1006, IE if server goes down
@@ -602,37 +601,16 @@ define('gsocket', ['extend'], function(_extend) {
         this.errors.push(event);
 
         this.state = GSocket.CLOSED;
+        // this.state = GSocket.ERRORED;
 
         this.emit('error', event);
 
-        //REVIEW: Should we move this into retryConnection?
         /*
          * We should figure out if the error warrants a retry.
          * For instance, we should not retry to connect to an
          * invalid URL.
          */
-
-        /*
-         * We got an error:
-         * - If we have exhausted allocated tries, then give up.
-         * - If this is the first error, set a timer for the
-         *   next scheduled try and let it fly.
-         */
-        if (this.tries >= this.maxtries) {
-            this.logger.warn('onError: Not handling reconnection.');
-            return false;
-        }
-
-        this.state = GSocket.CLOSING;
-
-        //We should check out the readyState:
-        this.clearTimeInterval('timeoutId');
-
-        var retryIn = this.getRetryTime();
-        this.logger.warn(this.name, 'retrying in', retryIn);
-        this.retryId = this.setTimeout(this.retryConnection.bind(this), retryIn);
-
-        return this.retryId;
+        // return this.retryConnection();
     };
 
     /**
@@ -640,11 +618,29 @@ define('gsocket', ['extend'], function(_extend) {
      * closures, but use a timeout to ensure we don't waste time.
      */
     GSocket.prototype.retryConnection = function() {
-        //Let's increase the try counter.
+        /*
+         * We got an error:
+         * - If we have exhausted allocated tries, then give up.
+         * - If this is the first error, set a timer for the
+         *   next scheduled try and let it fly.
+         */
+        if (this.tries >= this.maxtries) {
+            this.clearTimeInterval('retryId');
+            this.logger.warn('Not handling reconnection, we maxed number of tries');
+            return false;
+        }
 
-        this.tries += 1; //<== Move this to connect
-        this.logger.log('retryConnection', this.tries, new Date().toString().split(" ")[4]);
-        this.connect();
+        this.state = GSocket.RECONNECTING;
+        // this.state = GSocket.CLOSING;
+
+        //We should check out the readyState:
+        this.clearTimeInterval('timeoutId');
+
+        var retryIn = this.getRetryTime();
+
+        this.logger.warn(this.name, 'retryConnection in', retryIn);
+
+        this.retryId = this.setTimeout(this.connect.bind(this), retryIn);
     };
 
     /**

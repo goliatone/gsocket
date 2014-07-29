@@ -4,6 +4,8 @@
  * Created with gbase.
  * Copyright (c) 2014 goliatone
  * Licensed under the MIT license.
+ *
+ * http://dev.w3.org/html5/websockets/#ping-and-pong-frames
  */
 /* jshint strict: false, plusplus: true */
 /*global define: false, require: false, module: false, exports: false */
@@ -449,6 +451,7 @@ define('gsocket', ['extend'], function(_extend) {
         if (!this.hasOwnProperty('reconnectAfterTimeout')) return false;
         if (this.reconnectAfterTimeout === false) return false;
 
+        //TODO: What happens if we get a timeout between reconnection attempts?
         this.retryConnection();
 
         return true;
@@ -641,6 +644,8 @@ define('gsocket', ['extend'], function(_extend) {
         this.logger.warn(this.name, 'retryConnection in', retryIn);
 
         this.retryId = this.setTimeout(this.connect.bind(this), retryIn);
+
+        return this.retryId;
     };
 
     /**

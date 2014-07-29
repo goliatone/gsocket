@@ -60,6 +60,8 @@ _(Nothing yet)_
 
 ## Notes:
 
+TODO: Redo error handling. Right now error === reconnect, which is dumb.
+
 http://pusher.com/docs/pusher_protocol
 
 ```

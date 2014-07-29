@@ -672,7 +672,7 @@ define('gsocket', ['extend'], function(_extend) {
 
         this.heartbeat.beat = Date.now();
 
-        this.send(this.heartbeat);
+        this.send(this.heartbeat, false);
 
         return this;
     };
@@ -738,7 +738,7 @@ define('gsocket', ['extend'], function(_extend) {
      * @private
      */
     GSocket.prototype.clearTimeInterval = function(id) {
-        if (!this.hasOwnProperty(id)) return this;
+        if (!this.hasOwnProperty(id)) return false;
 
         clearTimeout(this[id]);
         clearInterval(this[id]);

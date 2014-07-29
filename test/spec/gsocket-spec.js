@@ -370,6 +370,95 @@ define(['gsocket'], function(GSocket) {
             expect(spy.args[0].length).toEqual(2);
             expect(spy.args[0][0]).toEqual('message');
         });
+
+
+
+        it('onError should not log if logErrors is false', function() {
+            var logger = {
+                error: sinon.spy()
+            };
+            gsocket = new GSocket({
+                logger: logger
+            })
+            gsocket.logErrors = false;
+            gsocket.onError({});
+            expect(logger.error.callCount).toEqual(0);
+        });
+
+        it('onError should not log if logErrors is false', function() {
+            var logger = {
+                error: sinon.spy()
+            };
+            gsocket = new GSocket({
+                logErrors: true,
+                logger: logger
+            });
+            gsocket.onError({});
+            expect(logger.error.callCount).toEqual(1);
+        });
+
+        it('onError should store all errors in the errors array', function() {
+            gsocket.onError({});
+            gsocket.onError({});
+            expect(gsocket.errors).toHaveLength(2);
+        });
+
+        it('onError should set state to GSocket.CLOSED', function() {
+            expect(gsocket.state).toNotEqual(GSocket.CLOSED);
+            gsocket.onError({});
+            expect(gsocket.state).toEqual(GSocket.CLOSED);
+        });
+
+        it('onError should emit an event with type "error"', function() {
+            var spy = sinon.spy(gsocket, 'emit');
+            var event = {
+                message: "Error message"
+            };
+            gsocket.onError(event);
+            expect(spy.callCount).toEqual(1);
+            expect(spy.args[0].length).toEqual(2);
+            expect(spy).toHaveBeenCalledWith(['error', event]);
+        });
+
+        it('onError should return false if over max number of tries', function() {
+            gsocket.tries = gsocket.maxtries = 3;
+            expect(gsocket.onError()).toEqual(false);
+        });
+
+        it('onError should try to reconnect if under max number of tries', function() {
+            expect(gsocket.onError()).toBeOfType('number');
+        });
+
+        it('retryConnection', function() {});
+
+        it('sendHeartbeat should bail out if verbosity level is under 2', function() {
+            gsocket.verbosity = 1;
+            expect(gsocket.sendHeartbeat()).toEqual(false);
+        });
+
+        it('sendHeartbeat should trigger interval only the first time is called', function() {
+            var spy = sinon.spy(gsocket, 'setInterval');
+            gsocket.verbosity = 2;
+            gsocket.sendHeartbeat();
+            gsocket.sendHeartbeat();
+            expect(spy).toHaveBeenCalledOnce();
+        });
+
+        it('sendHeartbeat should set interval to be keepalive property', function() {
+            var spy = sinon.spy(gsocket, 'setInterval');
+            gsocket.verbosity = 2;
+            gsocket.sendHeartbeat();
+            expect(spy).toHaveBeenCalledOnce();
+            expect(spy.args[0][1]).toEqual(gsocket.keepalive);
+        });
+
+        it('sendHeartbeat should skip beat if the connection is not open', function() {
+            gsocket.verbosity = 2;
+            gsocket.state = GSocket.CLOSED;
+            var trigger = gsocket.sendHeartbeat();
+            var state = gsocket.sendHeartbeat();
+            expect(state).toEqual(gsocket.state);
+        });
     });
 
     describe('GSocket', function() {

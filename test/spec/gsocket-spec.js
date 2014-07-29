@@ -326,6 +326,50 @@ define(['gsocket'], function(GSocket) {
             expect(spy.callCount).toEqual(1);
             expect(spy.calledWith(event)).toBeTruthy();
         });
+
+        it('onMessage should filter event payloads with processPlatformEvent', function() {
+            var spy = sinon.spy(gsocket, 'processPlatformEvent');
+            var event = {
+                data: JSON.stringify({
+                    age: 23,
+                    email: 'peperone@gmail.com'
+                })
+            };
+            var out = gsocket.onMessage(event);
+            expect(spy.callCount).toEqual(1);
+            expect(spy.calledWith(event)).toBeTruthy();
+        });
+
+        it('onMessage should call onMessageCallback if its defined', function() {
+            var spy = sinon.spy();
+            gsocket = new GSocket({
+                onMessageCallback: spy
+            });
+            var data = {
+                age: 23,
+                email: 'peperone@gmail.com'
+            };
+            var event = {
+                data: JSON.stringify(data)
+            };
+            var out = gsocket.onMessage(event);
+            expect(spy.callCount).toEqual(1);
+
+        });
+
+        it('onMessage should trigger an event of message type', function() {
+            var spy = sinon.spy(gsocket, 'emit');
+            var event = {
+                data: JSON.stringify({
+                    age: 23,
+                    email: 'peperone@gmail.com'
+                })
+            };
+            var out = gsocket.onMessage(event);
+            expect(spy.callCount).toEqual(1);
+            expect(spy.args[0].length).toEqual(2);
+            expect(spy.args[0][0]).toEqual('message');
+        });
     });
 
     describe('GSocket', function() {

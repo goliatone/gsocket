@@ -4,7 +4,9 @@ beforeEach:true, sinon:true, spyOn:true , expect:true */
 define(['gsocket'], function(GSocket) {
     window.GSocket = GSocket;
 
-    var noop = function() {};
+    var FakeTimers = sinon.useFakeTimers();
+    window.FT = FakeTimers;
+    var NOOP = function() {};
 
     var MockWebSocket = function(url, protocols) {
         this.created = true;
@@ -33,8 +35,13 @@ define(['gsocket'], function(GSocket) {
     };
     GSocket.DEFAULTS.endpoint = 'ws://localhost:9000/API/websockets'
 
-    GSocket.DEFAULTS.emit = noop;
+    GSocket.DEFAULTS.emit = NOOP;
     GSocket.DEFAULTS.reconnectAfterTimeout = false;
+
+
+    /* //////////////////////////////////////////////////
+    // TESTS
+//////////////////////////////////////////////////*/
 
     describe('GSocket', function() {
         var gsocket;
@@ -677,6 +684,51 @@ define(['gsocket'], function(GSocket) {
             expect(gsocket.state).toEqual(GSocket.CLOSED);
             // expect(gsocket.state).toEqual(GSocket.ERRORED);
             expect(gsocket.errors).toHaveLength(1);
+        });
+    });
+
+    describe('GSocket', function() {
+        var gsocket;
+
+        beforeEach(function() {
+            gsocket = new GSocket({});
+        });
+
+        it('retryConnection should call connect after X milliseconds', function() {
+            var retry = sinon.spy(gsocket, 'getRetryTime');
+            var connect = sinon.spy(gsocket, 'connect');
+
+            gsocket.retryConnection();
+
+            var retryTime = retry.returnValues[0];
+            FakeTimers.tick(retryTime);
+
+            expect(connect).toHaveBeenCalledOnce();
+        });
+
+        it('retryConnection should call try to connect maxtries', function() {
+            var retry = sinon.spy(gsocket, 'getRetryTime');
+            var connect = sinon.spy(gsocket, 'connect');
+
+            gsocket.retryConnection();
+
+            var retryTime;
+            // for (; gsocket.tries < 5;) {
+            // retryTime = retry.returnValues[gsocket.tries - 1];
+            retryTime = retry.returnValues[0];
+            console.log('FAIL', retryTime)
+            FakeTimers.tick(retryTime + 1);
+
+            retryTime = retry.returnValues[1];
+            console.log('FAIL', retryTime)
+            FakeTimers.tick(retryTime + 1);
+
+            retryTime = retry.returnValues[2];
+            console.log('FAIL', retryTime)
+            FakeTimers.tick(retryTime + 1);
+            // }
+
+            expect(connect.calls.length).toEqual(3);
         });
     });
 });

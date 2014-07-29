@@ -43,6 +43,7 @@ define('gsocket', ['extend'], function(_extend) {
 
     ///////////////////////////////////////////////////
     // DEFAULTS
+    // TODO: Rename `tries` to `connectionAttempts`
     ///////////////////////////////////////////////////
 
     var options = {
@@ -307,7 +308,7 @@ define('gsocket', ['extend'], function(_extend) {
         if (this.initialized) return this.logger.warn('Already initialized');
         this.initialized = true;
 
-        this.logger.log('GSocket: ' + this.ID + ' Init!');
+        // this.logger.log('GSocket: ' + this.ID + ' Init!');
 
         config = _extend({}, this.constructor.DEFAULTS, config);
 
@@ -362,7 +363,7 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.connect = function(endpoint) {
         //TODO: Should we be able to abort current connection?
-        if (this.state === GSocket.CONNECTING) return;
+        if (this.state === GSocket.CONNECTING) return false;
 
         endpoint && (this.endpoint = endpoint);
 
@@ -586,7 +587,7 @@ define('gsocket', ['extend'], function(_extend) {
         this.emit('message', event);
 
         //TODO: Messages can return a failed state. IE, protocol did
-        //not fail, but the bussines layer did.
+        //not fail, but the business layer did.
         //Refuse connection, client with same ID already registered.
     };
 
@@ -603,6 +604,8 @@ define('gsocket', ['extend'], function(_extend) {
         this.state = GSocket.CLOSED;
 
         this.emit('error', event);
+
+        //REVIEW: Should we move this into retryConnection?
         /*
          * We should figure out if the error warrants a retry.
          * For instance, we should not retry to connect to an
@@ -615,7 +618,7 @@ define('gsocket', ['extend'], function(_extend) {
          * - If this is the first error, set a timer for the
          *   next scheduled try and let it fly.
          */
-        if (this.tries === this.maxtries) {
+        if (this.tries >= this.maxtries) {
             this.logger.warn('onError: Not handling reconnection.');
             return false;
         }
@@ -638,7 +641,8 @@ define('gsocket', ['extend'], function(_extend) {
      */
     GSocket.prototype.retryConnection = function() {
         //Let's increase the try counter.
-        this.tries += 1;
+
+        this.tries += 1; //<== Move this to connect
         this.logger.log('retryConnection', this.tries, new Date().toString().split(" ")[4]);
         this.connect();
     };
@@ -658,13 +662,13 @@ define('gsocket', ['extend'], function(_extend) {
      * @return {this}
      */
     GSocket.prototype.sendHeartbeat = function() {
-        if (this.verbosity < 2) return this;
+        if (this.verbosity < 2) return false;
 
         if (!this.heartbeatId) {
             return this.heartbeatId = this.setInterval(this.sendHeartbeat.bind(this), this.keepalive);
         }
 
-        if (this.state !== GSocket.OPEN) return this;
+        if (this.state !== GSocket.OPEN) return this.state;
 
         this.heartbeat.beat = Date.now();
 
@@ -681,7 +685,8 @@ define('gsocket', ['extend'], function(_extend) {
      * @return {this}
      */
     GSocket.prototype.sendHandshake = function() {
-        if (this.verbosity < 1) return this;
+        if (this.verbosity < 1) return false;
+
         this.send(this.handshake, false);
         return this;
     };

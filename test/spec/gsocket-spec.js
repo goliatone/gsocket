@@ -5,6 +5,7 @@ define(['gsocket'], function(GSocket) {
     window.GSocket = GSocket;
 
     var FakeTimers = sinon.useFakeTimers();
+
     window.FT = FakeTimers;
     var NOOP = function() {};
 
@@ -691,7 +692,12 @@ define(['gsocket'], function(GSocket) {
         var gsocket;
 
         beforeEach(function() {
+            FakeTimers = sinon.useFakeTimers();
             gsocket = new GSocket({});
+        });
+
+        afterEach(function() {
+            FakeTimers.restore();
         });
 
         it('retryConnection should call connect after X milliseconds', function() {
@@ -706,9 +712,14 @@ define(['gsocket'], function(GSocket) {
             expect(connect).toHaveBeenCalledOnce();
         });
 
+
+
         xit('retryConnection should call try to connect maxtries', function() {
             var retry = sinon.spy(gsocket, 'getRetryTime');
             var connect = sinon.spy(gsocket, 'connect');
+            gsocket = new GSocket({
+                setInterval: NOOP
+            });
 
             gsocket.retryConnection();
 
@@ -716,18 +727,20 @@ define(['gsocket'], function(GSocket) {
             // for (; gsocket.tries < 5;) {
             // retryTime = retry.returnValues[gsocket.tries - 1];
             retryTime = retry.returnValues[0];
-            gsocket.state = GSocket.CONNECTING;
+            gsocket.state = GSocket.CLOSED;
             FakeTimers.tick(retryTime + 1);
-            console.log('FAIL', retryTime, gsocket.tries, connect.calls)
-            expect(connect.calls.length).toEqual(1);
+
+            console.log('FAIL', FT.now, retry.callCount, gsocket.tries, connect.callCount)
 
             retryTime = retry.returnValues[1];
-            console.log('FAIL', retryTime)
+            gsocket.state = GSocket.CLOSED;
             FakeTimers.tick(retryTime + 1);
 
             retryTime = retry.returnValues[2];
-            console.log('FAIL', retryTime)
+            gsocket.state = GSocket.CLOSED;
             FakeTimers.tick(retryTime + 1);
+            console.log('FAIL', FT.now, retry.callCount, gsocket.tries, connect.callCount)
+
             // }
 
             expect(connect.calls.length).toEqual(3);

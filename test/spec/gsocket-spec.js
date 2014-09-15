@@ -90,6 +90,7 @@ define(['gsocket'], function(GSocket) {
             GSocket.prototype.reset.restore();
         });
 
+
         it('reset should set state to GSocket.CLOSED', function() {
             gsocket = new GSocket({});
             gsocket.state = 'SOMETHING';
@@ -154,6 +155,38 @@ define(['gsocket'], function(GSocket) {
             expect(spy).toHaveBeenCalled(GSocket.timeoutIds.length);
 
             gsocket.clearTimeInterval.restore();
+        });
+
+        it('on connect should validate endpoint', function(){
+            gsocket = new GSocket({autoconnect:false});
+            var validateEndpoint = sinon.spy(gsocket, 'validateEndpoint');
+            gsocket.connect();
+            expect(validateEndpoint).toHaveBeenCalledOnce();
+        });
+
+        it('on connect should change the endpoint if provided as an argument', function(){
+            gsocket = new GSocket({autoconnect:false});
+            var endpoint = 'ws://endpoint/url';
+            gsocket.connect(endpoint);
+            expect(gsocket.endpoint).toEqual(endpoint);
+        });
+
+        it('should throw if provided with a wrong url format', function(){
+            var endpoint = '//INVALID/url';
+            var onError = sinon.spy(gsocket, 'onError');
+            gsocket = new GSocket({autoconnect:false});
+            gsocket.connect(endpoint);
+            expect(onError).toHaveBeenCalledOnce();
+        });
+
+        it('should override validateEndpoint if configured', function(){
+            var validateEndpoint = sinon.spy();
+            gsocket = new GSocket({
+                autoconnect:false,
+                validateEndpoint:validateEndpoint
+            });
+            gsocket.connect();
+            expect(validateEndpoint).toHaveBeenCalledOnce(); 
         });
 
         it('getRetryTime should return a value capped by maxRetryTime', function() {
@@ -377,8 +410,6 @@ define(['gsocket'], function(GSocket) {
             expect(spy.args[0].length).toEqual(2);
             expect(spy.args[0][0]).toEqual('message');
         });
-
-
 
         it('onError should not log if logErrors is false', function() {
             var logger = {
@@ -685,6 +716,33 @@ define(['gsocket'], function(GSocket) {
             expect(gsocket.state).toEqual(GSocket.CLOSED);
             // expect(gsocket.state).toEqual(GSocket.ERRORED);
             expect(gsocket.errors).toHaveLength(1);
+        });
+
+        it('disconnect should close service', function(){
+            var serviceClose = gsocket.service.close;
+            gsocket.disconnect();
+            expect(serviceClose).toHaveBeenCalledOnce();
+        });
+
+        it('disconnect should reset', function(){
+            var serviceReset = sinon.spy(gsocket, 'reset');
+            gsocket.disconnect();
+            expect(serviceReset).toHaveBeenCalledOnce();
+            gsocket.reset.restore();
+        });
+
+        it('reset should bring instance to initial state', function(){
+            var clearIds = sinon.spy(gsocket, 'clearIds');
+            
+            gsocket.reset();
+
+            expect(clearIds).toHaveBeenCalledOnce();
+            expect(gsocket.tries).toBe(0);
+            expect(gsocket.state).toBe(GSocket.CLOSED);
+            expect(gsocket.errors.length).toBe(0);
+            expect(gsocket.messages.length).toBe(0);
+
+            gsocket.clearIds.restore();
         });
     });
 

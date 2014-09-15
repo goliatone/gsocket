@@ -401,6 +401,11 @@ define('gsocket', ['extend'], function(_extend) {
         return this;
     };
 
+    GSocket.prototype.disconnect = function(){
+        _isFunction(this.service, 'close') && this.service.close();
+        this.reset();
+    };
+
     GSocket.prototype.validateEndpoint = function() {
         if (!this.endpoint) throw new Error('GSocket needs endpoint!');
         if (!this.isValidEndpoint()) throw new Error('GSocket needs valid endpoint!')

@@ -190,7 +190,7 @@ define('gsocket', ['extend'], function(_extend) {
     /*
      * VERSION
      */
-    GSocket.VERSION = '0.0.0';
+    GSocket.VERSION = '0.0.3';
 
     /**
      * Class name
@@ -401,7 +401,7 @@ define('gsocket', ['extend'], function(_extend) {
         return this;
     };
 
-    GSocket.prototype.disconnect = function(){
+    GSocket.prototype.disconnect = function() {
         _isFunction(this.service, 'close') && this.service.close();
         this.reset();
     };

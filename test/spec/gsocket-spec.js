@@ -172,9 +172,9 @@ define(['gsocket'], function(GSocket) {
         });
 
         it('should throw if provided with a wrong url format', function(){
-            var endpoint = '//INVALID/url';
-            var onError = sinon.spy(gsocket, 'onError');
+            var endpoint = '//INVALID/url';            
             gsocket = new GSocket({autoconnect:false});
+            var onError = sinon.spy(gsocket, 'onError');
             gsocket.connect(endpoint);
             expect(onError).toHaveBeenCalledOnce();
         });

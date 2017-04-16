@@ -481,9 +481,12 @@ define('gsocket', ['extend'], function(_extend) {
 
         this.logger.log('send ', message);
 
-        if (typeof message === 'object') message.timestamp = Date.now();
-
         if (typeof message !== 'string') message = JSON.stringify(message);
+
+        if (typeof message === 'object') {
+            message = _extend({}, message);
+            message.timestamp = Date.now();
+        }
 
         this.service.send(message);
 
